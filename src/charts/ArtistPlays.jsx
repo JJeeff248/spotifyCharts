@@ -12,12 +12,14 @@ import {
 import RangeSlider from "../components/RangeSlider/RangeSlider";
 import CustomTooltip from "../components/CustomTooltip/CustomTooltip";
 import ChartSelector from "../components/ChartSelector/ChartSelector";
+import RaceChart from "./RaceChart";
 
 import PropTypes from "prop-types";
 
 const ArtistPlays = ({ data }) => {
     const [counts, setCounts] = useState();
     const [filteredCounts, setFilteredCounts] = useState();
+    const [raceData, setRaceData] = useState([]);
 
     const [selectedMin, setSelectedMin] = useState();
     const [selectedMax, setSelectedMax] = useState();
@@ -35,6 +37,42 @@ const ArtistPlays = ({ data }) => {
         return Object.entries(artistCounts)
             .map(([artistName, count]) => ({ label: artistName, value: count }))
             .sort((a, b) => b.value - a.value);
+    }, [data]);
+
+    const processRaceData = useMemo(() => {
+        if (!data) return [];
+
+        const artistCounts = {};
+        const dateSet = new Set();
+
+        data.forEach((d) => {
+            const date = d.endTime.split(" ")[0];
+            dateSet.add(date);
+            if (!artistCounts[date]) {
+                artistCounts[date] = {};
+            }
+            artistCounts[date][d.artistName] =
+                (artistCounts[date][d.artistName] || 0) + 1;
+        });
+
+        const sortedDates = Array.from(dateSet).sort(
+            (a, b) => new Date(a) - new Date(b)
+        );
+        const raceData = [];
+
+        let cumulativeCounts = {};
+
+        sortedDates.forEach((date) => {
+            Object.entries(artistCounts[date]).forEach(([artist, count]) => {
+                cumulativeCounts[artist] =
+                    (cumulativeCounts[artist] || 0) + count;
+            });
+
+            const dateData = { ...cumulativeCounts, date };
+            raceData.push(dateData);
+        });
+
+        return raceData;
     }, [data]);
 
     const minPlays = useMemo(() => {
@@ -70,6 +108,63 @@ const ArtistPlays = ({ data }) => {
         }
     }, [selectedMin, selectedMax, counts]);
 
+    useEffect(() => {
+        if (data) {
+            setRaceData(processRaceData);
+        }
+    }, [data, processRaceData]);
+
+    const renderChart = () => {
+        switch (chartType) {
+            case "pie":
+                return (
+                    <PieChart>
+                        <Tooltip content={<CustomTooltip />} />
+                        <Pie
+                            data={filteredCounts}
+                            dataKey="value"
+                            nameKey="label"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius="60%"
+                            outerRadius="80%"
+                            fill="#1ed760"
+                            label={({ name }) =>
+                                filteredCounts?.length < 25
+                                    ? `${name}`
+                                    : null
+                            }
+                            labelLine={filteredCounts?.length < 30}
+                        />
+                    </PieChart>
+                );
+            case "race":
+                return <RaceChart data={raceData} />;
+            default:
+                // Bar chart is now the default
+                return (
+                    <BarChart data={filteredCounts}>
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="value" fill="#1ed760" />
+                        <XAxis
+                            height={130}
+                            dataKey="label"
+                            angle={-45}
+                            textAnchor="end"
+                        />
+                        <YAxis
+                            label={{
+                                value: "Plays",
+                                angle: -90,
+                                position: "insideleft",
+                            }}
+                            width={120}
+                        />
+                    </BarChart>
+                );
+        }
+    };
+
     return (
         <>
             {counts && (
@@ -77,58 +172,21 @@ const ArtistPlays = ({ data }) => {
                     <ChartSelector
                         chartType={chartType}
                         setChartType={setChartType}
-                        types={["bar", "pie"]}
+                        types={["bar", "pie", "race"]}
                     />
-                    <RangeSlider
-                        min={minPlays}
-                        max={maxPlays}
-                        initialMin={selectedMin}
-                        initialMax={selectedMax}
-                        onMinChange={setSelectedMin}
-                        onMaxChange={setSelectedMax}
-                    />
-                    <div id="chart">
+                    {chartType !== "race" && (
+                        <RangeSlider
+                            min={minPlays}
+                            max={maxPlays}
+                            initialMin={selectedMin}
+                            initialMax={selectedMax}
+                            onMinChange={setSelectedMin}
+                            onMaxChange={setSelectedMax}
+                        />
+                    )}
+                    <div id="chart" style={{ height: chartType === "race" ? "min-content" : "50vh" }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            {chartType === "bar" ? (
-                                <BarChart data={filteredCounts}>
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="value" fill="#1ed760" />
-                                    <XAxis
-                                        height={130}
-                                        dataKey="label"
-                                        angle={-45}
-                                        textAnchor="end"
-                                    />
-                                    <YAxis
-                                        label={{
-                                            value: "Plays",
-                                            angle: -90,
-                                            position: "insideleft",
-                                        }}
-                                        width={120}
-                                    />
-                                </BarChart>
-                            ) : (
-                                <PieChart>
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Pie
-                                        data={filteredCounts}
-                                        dataKey="value"
-                                        nameKey="label"
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius="60%"
-                                        outerRadius="80%"
-                                        fill="#1ed760"
-                                        label={({ name }) =>
-                                            filteredCounts?.length < 25
-                                                ? `${name}`
-                                                : null
-                                        }
-                                        labelLine={filteredCounts?.length < 30}
-                                    ></Pie>
-                                </PieChart>
-                            )}
+                            {renderChart()}
                         </ResponsiveContainer>
                     </div>
                 </>
@@ -138,7 +196,12 @@ const ArtistPlays = ({ data }) => {
 };
 
 ArtistPlays.propTypes = {
-    data: PropTypes.array,
+    data: PropTypes.arrayOf(
+        PropTypes.shape({
+            artistName: PropTypes.string,
+            endTime: PropTypes.string,
+        })
+    ),
 };
 
 export default ArtistPlays;
