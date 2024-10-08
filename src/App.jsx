@@ -32,9 +32,11 @@ function App() {
                 }}
             />
 
-            <button onClick={() => setShowCounts(!showCounts)}>
+            {data && (
+                <button onClick={() => setShowCounts(!showCounts)}>
                 {showCounts ? "Hide counts" : "Show counts"}
-            </button>
+                </button>
+            )}
 
             {/* plot data */}
             {showCounts && <ArtistPlays data={data} />}
