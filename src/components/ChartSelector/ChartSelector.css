@@ -1,0 +1,43 @@
+.chart-type {
+    display: flex;
+    align-items: center;
+    margin: 15px 0;
+}
+
+.chart-type div {
+    margin-right: 10px;
+}
+
+.chart-type input[type="radio"] {
+    display: none;
+}
+
+.chart-type label {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    color: #333;
+    font-weight: 500;
+}
+
+.chart-type input[type="radio"]:checked + label {
+    background-color: #1ed760;
+    color: #fff;
+    border-color: #1ed760;
+}
+
+.chart-type label:hover {
+    background-color: #e0e0e0;
+}
+
+.chart-type input[type="radio"]:checked + label:hover {
+    background-color: #1bc656;
+}
+
+
+
